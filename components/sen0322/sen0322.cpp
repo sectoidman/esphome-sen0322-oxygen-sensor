@@ -26,14 +26,6 @@ void SEN0322Sensor::setup() {
   }
   readFlash();
   getVersion();
-  checkProbeLife();
-
-  if (this->probeLife_ == 0)
-  {
-    ESP_LOGW(TAG, "Probe life register shows oxygen probe exhausted.");
-    this->status_set_warning();
-  }
-
   ESP_LOGCONFIG(TAG, "SEN0322 setup complete");
 }
 
@@ -43,8 +35,8 @@ void SEN0322Sensor::getVersion() {
 }
 
 void SEN0322Sensor::checkProbeLife() {
-    this->probeLife_ = this->read_byte(SEN0322_PROBE_LIFE_REGISTER).value_or(0xFF);
-    ESP_LOGD(TAG, "Got probe life value: 0x%02X", this->probeLife_);
+  this->probeLife_ = this->read_byte(SEN0322_PROBE_LIFE_REGISTER).value_or(0xFF);
+  ESP_LOGD(TAG, "Got probe life value: 0x%02X", this->probeLife_);
 }
 
 void SEN0322Sensor::readFlash() {
@@ -90,19 +82,28 @@ void SEN0322Sensor::update() {
   }
 
   ESP_LOGD(TAG, "Read 3 bytes: [0] = 0x%02X, [1] = 0x%02X, [2] = 0x%02X", data[0], data[1], data[2]);
-  
+
   // Parse oxygen concentration with little-endian byte order
   // SEN0322 uses reversed byte order: data[1] = high byte, data[0] = low byte
   // uint16_t raw_oxygen = (data[1] << 8) | data[0];
   float oxygen_concentration = (calibrated_value_ * (((float)data[0]) + ((float)data[1] / 10.0) + ((float)data[2] / 100.0)));
-  
+
   // Validate reading (oxygen should be between 0-30% for safety margin)
   if (oxygen_concentration < 0.0f || oxygen_concentration > 30.0f) {
     ESP_LOGW(TAG, "Invalid oxygen reading: %.2f%%", oxygen_concentration);
     this->status_set_warning();
     return;
   }
-  
+
+  // Check self-reported sensor life value
+  checkProbeLife();
+
+  if (this->probeLife_ == 0)
+  {
+    ESP_LOGW(TAG, "Probe life register shows oxygen probe exhausted.");
+    this->status_set_warning();
+  }
+
   ESP_LOGD(TAG, "Got oxygen concentration: %.2f%%", oxygen_concentration);
   this->publish_state(oxygen_concentration);
   this->status_clear_warning();
