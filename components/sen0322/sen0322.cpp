@@ -38,8 +38,8 @@ void SEN0322Sensor::setup() {
 }
 
 void SEN0322Sensor::getVersion() {
-  this->version = this->read_byte(SEN0322_VERSION_REGISTER).value_or(0);
-  ESP_LOGD(TAG, "Got version value: 0x%02X", this->version);
+  this->version_ = this->read_byte(SEN0322_VERSION_REGISTER).value_or(0);
+  ESP_LOGD(TAG, "Got version value: 0x%02X", this->version_);
 }
 
 void SEN0322Sensor::checkProbeLife() {
