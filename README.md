@@ -80,6 +80,7 @@ sensor:
     update_interval: 30s
     id: oxygen_sensor
     accuracy_decimals: 2
+    health_check: true
 ```
 
 ## Configuration Options
@@ -90,6 +91,7 @@ sensor:
 | `update_interval` | Time | 60s | How often to read the sensor |
 | `id` | ID | Optional | ID for referencing in automations |
 | `accuracy_decimals` | Integer | 2 | Number of decimal places to display |
+| `health_check` | Boolean | false | On sensor update, also query the probe life register and emit a warning if it shows expired |
 
 ## Troubleshooting
 
