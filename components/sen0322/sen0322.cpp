@@ -62,7 +62,19 @@ void SEN0322Sensor::dump_config() {
 
 void SEN0322Sensor::update() {
   ESP_LOGV(TAG, "Updating SEN0322 sensor...");
+
+  // Read calibration
   readFlash();
+
+  // Check self-reported sensor life value
+  checkProbeLife();
+
+  if (this->probeLife_ == 0)
+  {
+    ESP_LOGW(TAG, "Probe life register shows oxygen probe exhausted.");
+    this->status_set_warning();
+  }
+
   // Send command to read oxygen concentration
   //if (!this->write_byte(SEN0322_OXYGEN_DATA, 0x00)) {
   //  ESP_LOGE(TAG, "Failed to send oxygen data command");
@@ -93,15 +105,6 @@ void SEN0322Sensor::update() {
     ESP_LOGW(TAG, "Invalid oxygen reading: %.2f%%", oxygen_concentration);
     this->status_set_warning();
     return;
-  }
-
-  // Check self-reported sensor life value
-  checkProbeLife();
-
-  if (this->probeLife_ == 0)
-  {
-    ESP_LOGW(TAG, "Probe life register shows oxygen probe exhausted.");
-    this->status_set_warning();
   }
 
   ESP_LOGD(TAG, "Got oxygen concentration: %.2f%%", oxygen_concentration);
