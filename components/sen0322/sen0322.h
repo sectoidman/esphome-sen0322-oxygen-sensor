@@ -16,7 +16,12 @@ class SEN0322Sensor : public PollingComponent, public i2c::I2CDevice, public sen
 
  protected:
   float calibrated_value_;
+  uint8_t version_ {0x0};
+  uint8_t probeLife_ {0xFF};
+
   void readFlash();
+  void getVersion();
+  void checkProbeLife();
   // Additional methods can be added here if needed for advanced functionality
 };
 

@@ -12,10 +12,12 @@ static const uint8_t SEN0322_COLLECT_PHASE = 0x01;
 static const uint8_t SEN0322_JUDGE_PHASE = 0x02;
 static const uint8_t SEN0322_OXYGEN_DATA = 0x03;
 static const uint8_t SEN0322_GET_KEY_REGISTER = 0x0A;
+static const uint8_t SEN0322_PROBE_LIFE_REGISTER = 0x0E;
+static const uint8_t SEN0322_VERSION_REGISTER = 0x0F;
 
 void SEN0322Sensor::setup() {
   ESP_LOGCONFIG(TAG, "Setting up SEN0322...");
-  
+
   // Initialize sensor
   if (!this->write_byte(SEN0322_COLLECT_PHASE, 0x00)) {
     ESP_LOGE(TAG, "Failed to initialize sensor");
@@ -23,14 +25,33 @@ void SEN0322Sensor::setup() {
     return;
   }
   readFlash();
+  getVersion();
+  checkProbeLife();
+
+  if (this->probeLife_ == 0)
+  {
+    ESP_LOGW(TAG, "Probe life register shows oxygen probe exhausted.");
+    this->status_set_warning();
+  }
+
   ESP_LOGCONFIG(TAG, "SEN0322 setup complete");
+}
+
+void SEN0322Sensor::getVersion() {
+  this->version = this->read_byte(SEN0322_VERSION_REGISTER).value_or(0);
+  ESP_LOGD(TAG, "Got version value: 0x%02X", this->version);
+}
+
+void SEN0322Sensor::checkProbeLife() {
+    this->probeLife_ = this->read_byte(SEN0322_PROBE_LIFE_REGISTER).value_or(0xFF);
+    ESP_LOGD(TAG, "Got probe life value: 0x%02X", this->probeLife_);
 }
 
 void SEN0322Sensor::readFlash() {
   uint8_t value = 0;
   value = this->read_byte(SEN0322_GET_KEY_REGISTER).value_or(0);
   ESP_LOGD(TAG, "Got flash value: 0x%02X", value);
-  
+
   if (value == 0) { calibrated_value_ = 20.9 / 120.0; }
   else { calibrated_value_ = (float)value / 1000.0; }
 }
@@ -40,7 +61,8 @@ void SEN0322Sensor::dump_config() {
   LOG_I2C_DEVICE(this);
   LOG_UPDATE_INTERVAL(this);
   LOG_SENSOR("  ", "Oxygen", this);
-  
+  ESP_LOGCONFIG(TAG, "  Sensor Version: %d", this->version_);
+
   if (this->is_failed()) {
     ESP_LOGE(TAG, "Communication with SEN0322 failed!");
   }
