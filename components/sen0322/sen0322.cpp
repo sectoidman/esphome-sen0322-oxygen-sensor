@@ -15,6 +15,17 @@ static const uint8_t SEN0322_GET_KEY_REGISTER = 0x0A;
 static const uint8_t SEN0322_PROBE_LIFE_REGISTER = 0x0E;
 static const uint8_t SEN0322_VERSION_REGISTER = 0x0F;
 
+enum sensorLife {
+    SEN0322_PROBE_LIFE_OK = 0x1,
+    SEN0322_PROBE_LIFE_EXPIRED = 0x0,
+    SEN0322_PROBE_LIFE_UNSUPPORTED = 0xFF
+};
+
+enum sensorVersion {
+    SEN0322_OLD_VERSION = 0x0,
+    SEN0322_NEW_VERSION = 0x1
+};
+
 void SEN0322Sensor::setup() {
   ESP_LOGCONFIG(TAG, "Setting up SEN0322...");
 
@@ -30,13 +41,20 @@ void SEN0322Sensor::setup() {
 }
 
 void SEN0322Sensor::getVersion() {
-  this->version_ = this->read_byte(SEN0322_VERSION_REGISTER).value_or(0);
+  this->version_ = this->read_byte(SEN0322_VERSION_REGISTER).value_or(SEN0322_OLD_VERSION);
   ESP_LOGD(TAG, "Got version value: 0x%02X", this->version_);
 }
 
 void SEN0322Sensor::checkProbeLife() {
-  this->probeLife_ = this->read_byte(SEN0322_PROBE_LIFE_REGISTER).value_or(0xFF);
-  ESP_LOGD(TAG, "Got probe life value: 0x%02X", this->probeLife_);
+  if (this->version_ == SEN0322_NEW_VERSION)
+  {
+    this->probeLife_ = this->read_byte(SEN0322_PROBE_LIFE_REGISTER).value_or(SEN0322_PROBE_LIFE_UNSUPPORTED);
+    ESP_LOGD(TAG, "Got probe life value: 0x%02X", this->probeLife_);
+  }
+  else
+  {
+    ESP_LOGD(TAG, "Sensor version does not support probe life information");
+  }
 }
 
 void SEN0322Sensor::readFlash() {
@@ -67,12 +85,15 @@ void SEN0322Sensor::update() {
   readFlash();
 
   // Check self-reported sensor life value
-  checkProbeLife();
-
-  if (this->probeLife_ == 0)
+  if (this->enable_health_check_)
   {
-    ESP_LOGW(TAG, "Probe life register shows oxygen probe exhausted.");
-    this->status_set_warning();
+    checkProbeLife();
+
+    if (this->probeLife_ == SEN0322_PROBE_LIFE_EXPIRED)
+    {
+      ESP_LOGW(TAG, "Probe life register shows oxygen probe exhausted.");
+      this->status_set_warning();
+    }
   }
 
   // Send command to read oxygen concentration
@@ -81,7 +102,7 @@ void SEN0322Sensor::update() {
   //  this->status_set_warning();
   //  return;
   //}
-  
+
   // Wait for sensor to process
   //delay(50);
   
